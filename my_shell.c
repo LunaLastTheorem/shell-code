@@ -47,15 +47,31 @@ char **tokenize(char *line)
 	return tokens;
 }
 
-void background_process()
+void background_process(char ***commands)
+{
+	pid_t pid = fork();
+
+	if (pid < 0)
+	{
+		perror("fork fail in background process");
+	}
+
+	if (pid == 0)
+	{
+		setsid();
+
+		if (execvp(commands[0][0], commands[0]) == -1)
+		{
+			perror("Error execurting in background");
+		}
+	}
+}
+
+void sequence_process(char ***commands)
 {
 }
 
-void sequence_process()
-{
-}
-
-void parallel_in_foreground()
+void parallel_in_foreground(char ***commands)
 {
 }
 
@@ -105,7 +121,7 @@ int main(int argc, char *argv[])
 		bool background = 0; // &
 		bool sequence = 0;	 // &&
 		bool foreground = 0; // &&&
-		
+
 		char ***commands_array = (char ***)malloc(MAX_NUM_TOKENS * sizeof(char **));
 		int commands_pointer = 0;
 		int token_pointer = 0;
@@ -115,17 +131,23 @@ int main(int argc, char *argv[])
 		{
 			// printf("found token %s (remove this debug output later)\n", tokens[i]);
 
-			if (strcmp(tokens[i], "&") == 0 || strcmp(tokens[i], "&&") == 0 || strcmp(tokens[i], "&&&") == 0) {
+			if (strcmp(tokens[i], "&") == 0 || strcmp(tokens[i], "&&") == 0 || strcmp(tokens[i], "&&&") == 0)
+			{
 				commands_array[commands_pointer][token_pointer] = NULL;
 				commands_pointer++;
 				token_pointer = 0;
 				commands_array[commands_pointer] = (char **)malloc(MAX_TOKEN_SIZE * sizeof(char *));
-				
-				if (strcmp(tokens[i], "&") == 0) {
+
+				if (strcmp(tokens[i], "&") == 0)
+				{
 					background = 1;
-				} else if (strcmp(tokens[i], "&&") == 0) {
+				}
+				else if (strcmp(tokens[i], "&&") == 0)
+				{
 					sequence = 1;
-				} else if (strcmp(tokens[i], "&&&") == 0) {
+				}
+				else if (strcmp(tokens[i], "&&&") == 0)
+				{
 					foreground = 1;
 				}
 
@@ -136,23 +158,28 @@ int main(int argc, char *argv[])
 			token_pointer++;
 		}
 
-		for (int i = 0; i <= commands_pointer; i++) {
-			printf("Command %d: ", i);
-			for (int j = 0; commands_array[i][j] != NULL; j++) {
-				printf("%s ", commands_array[i][j]);
-			}
-			printf("\n");
-		} //TODO remove
+		// for (int i = 0; i <= commands_pointer; i++) {
+		// 	printf("Command %d: ", i);
+		// 	for (int j = 0; commands_array[i][j] != NULL; j++) {
+		// 		printf("%s ", commands_array[i][j]);
+		// 	}
+		// 	printf("\n");
+		// } //TODO remove
 
 		if (background == 1)
 		{
-			
+			for (int i = 0; commands_array[i] != NULL; i++)
+			{
+				background_process(commands_array);
+			}
 		}
 		else if (sequence == 1)
 		{
+			sequence_process(commands_array);
 		}
 		else if (foreground == 1)
 		{
+			parallel_in_foreground(commands_array);
 		}
 		else
 		{
