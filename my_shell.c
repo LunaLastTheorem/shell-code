@@ -107,49 +107,46 @@ int main(int argc, char *argv[])
 		bool foreground = 0; // &&&
 		
 		char ***commands_array = (char ***)malloc(MAX_NUM_TOKENS * sizeof(char **));
-		for (int i = 0; i < MAX_NUM_TOKENS; i++)
-		{
-			commands_array[i] = (char **)malloc(MAX_TOKEN_SIZE * sizeof(char *));
-			for (int j = 0; j < MAX_TOKEN_SIZE; j++)
-			{
-				commands_array[i][j] = (char *)malloc(20 * sizeof(char));
-			}
-		}
 		int commands_pointer = 0;
+		int token_pointer = 0;
+		commands_array[commands_pointer] = (char **)malloc(MAX_TOKEN_SIZE * sizeof(char *));
 
 		for (i = 0; tokens[i] != NULL; i++)
 		{
-			printf("found token %s (remove this debug output later)\n", tokens[i]);
-			strcpy(commands_array[commands_pointer][i], tokens[i]);
+			// printf("found token %s (remove this debug output later)\n", tokens[i]);
 
-			if (strcmp(tokens[i], "&") == 0)
-			{
-				printf("%s", "background\n"); // TODO remove
+			if (strcmp(tokens[i], "&") == 0 || strcmp(tokens[i], "&&") == 0 || strcmp(tokens[i], "&&&") == 0) {
+				commands_array[commands_pointer][token_pointer] = NULL;
 				commands_pointer++;
-				background = 1;
+				token_pointer = 0;
+				commands_array[commands_pointer] = (char **)malloc(MAX_TOKEN_SIZE * sizeof(char *));
+				
+				if (strcmp(tokens[i], "&") == 0) {
+					background = 1;
+				} else if (strcmp(tokens[i], "&&") == 0) {
+					sequence = 1;
+				} else if (strcmp(tokens[i], "&&&") == 0) {
+					foreground = 1;
+				}
+
+				continue;
 			}
-			else if (strcmp(tokens[i], "&&") == 0)
-			{
-				printf("%s", "sequence\n"); // TODO remove
-				commands_pointer++;
-				sequence = 1;
-			}
-			else if (strcmp(tokens[i], "&&&") == 0)
-			{
-				printf("%s", "foreground\n"); // TODO remove
-				commands_pointer++;
-				foreground = 1;
-			}
+
+			commands_array[commands_pointer][token_pointer] = strdup(tokens[i]);
+			token_pointer++;
 		}
 
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 20; j++) {
-				printf("Token [%d][%d]: %s\n", i, j, commands_array[i][j]);
+		for (int i = 0; i <= commands_pointer; i++) {
+			printf("Command %d: ", i);
+			for (int j = 0; commands_array[i][j] != NULL; j++) {
+				printf("%s ", commands_array[i][j]);
 			}
-		}
+			printf("\n");
+		} //TODO remove
 
 		if (background == 1)
 		{
+			
 		}
 		else if (sequence == 1)
 		{
