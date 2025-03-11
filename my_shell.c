@@ -49,73 +49,93 @@ char **tokenize(char *line)
 
 void background_process(char ***commands)
 {
-	//TODO implement
+	// TODO implement
 }
 
 void sequence_process(char ***commands)
 {
-    int i = 0;
-    while (commands[i] != NULL) // Loop through all commands
-    {
-        pid_t pid = fork();
+	int i = 0;
+	while (commands[i] != NULL) // Loop through all commands
+	{
+		if (strcmp(commands[i][0], "cd") == 0)
+		{
+			if (commands[i][1] == NULL || chdir(commands[i][1]) != 0)
+			{
+				fprintf(stderr, "Invalid directory\n");
+			}
+			i++;
+			continue;
+		}
 
-        if (pid < 0)
-        {
-            perror("Fork failed");
-            exit(1);
-        }
-        else if (pid == 0)
-        {
-            if (execvp(commands[i][0], commands[i]) == -1)
-            {
-                perror("Error executing command");
+		pid_t pid = fork();
+
+		if (pid < 0)
+		{
+			perror("Fork failed");
+			exit(1);
+		}
+		else if (pid == 0)
+		{
+			if (execvp(commands[i][0], commands[i]) == -1)
+			{
+				printf("Commands \'%s\' not found, or an error has occured during execution\n", commands[i][0]);
 				exit(1);
-            }
-        }
-        else
-        {
-            waitpid(pid, 0, 0);
-        }
-        i++;
-    }
+			}
+		}
+		else
+		{
+			waitpid(pid, 0, 0);
+		}
+		i++;
+	}
 }
 
 void parallel_in_foreground(char ***commands)
 {
-    int i = 0;
-    pid_t pids[MAX_NUM_TOKENS]; // Store PIDs of child processes
-    int num_commands = 0;
+	int i = 0;
+	pid_t pids[MAX_NUM_TOKENS];
+	int num_commands = 0;
 
-    while (commands[i] != NULL)
-    {
-        pid_t pid = fork();
+	while (commands[i] != NULL)
+	{
+		if (strcmp(commands[i][0], "cd") == 0)
+		{
+			if (commands[i][1] == NULL || chdir(commands[i][1]) != 0)
+			{
+				fprintf(stderr, "Invalid directory\n");
+			}
+			i++;
+			continue;
+		}
 
-        if (pid < 0)
-        {
-            perror("Fork failed");
-            exit(1);
-        }
-        else if (pid == 0)
-        {
-            if (execvp(commands[i][0], commands[i]) == -1)
-            {
-                perror("Error executing command");
-                exit(1);
-            }
-        }
-        else
-        {
-            pids[i] = pid;
-            num_commands++;
-        }
+		pid_t pid = fork();
 
-        i++;
-    }
+		if (pid < 0)
+		{
+			perror("Fork failed");
+			exit(1);
+		}
+		else if (pid == 0)
+		{
+			if (execvp(commands[i][0], commands[i]) == -1)
+			{
+				printf("Commands \'%s\' not found, or an error has occured during execution\n", commands[i][0]);
+				exit(1);
+			}
+		}
+		else
+		{
+			pids[i] = pid;
+			num_commands++;
+		}
 
-    for (int j = 0; j < num_commands; j++)
-    {
-        waitpid(pids[j], NULL, 0);
-    }
+		i++;
+	}
+
+	for (int j = 0; j < num_commands; j++)
+	{
+		waitpid(pids[j], NULL, 0);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -201,14 +221,6 @@ int main(int argc, char *argv[])
 			token_pointer++;
 		}
 
-		// for (int i = 0; i <= commands_pointer; i++) {
-		// 	printf("Command %d: ", i);
-		// 	for (int j = 0; commands_array[i][j] != NULL; j++) {
-		// 		printf("%s ", commands_array[i][j]);
-		// 	}
-		// 	printf("\n");
-		// } //TODO remove
-
 		if (background == 1)
 		{
 			background_process(commands_array);
@@ -220,6 +232,13 @@ int main(int argc, char *argv[])
 		else if (foreground == 1)
 		{
 			parallel_in_foreground(commands_array);
+		}
+		else if (strcmp(tokens[0], "cd") == 0)
+		{
+			if (tokens[1] == NULL || chdir(tokens[1]) != 0)
+			{
+				fprintf(stderr, "Invalid directory\n");
+			}
 		}
 		else
 		{
@@ -234,20 +253,10 @@ int main(int argc, char *argv[])
 			}
 			else if (pid == 0)
 			{
-				if (strcmp(tokens[0], "cd") != 0)
+				if (execvp(tokens[0], tokens) == -1)
 				{
-					if (execvp(tokens[0], tokens) == -1)
-					{
-						printf("Commands \'%s\' not found, or an error has occured during execution\n", tokens[0]);
-						exit(1);
-					}
-				}
-				else
-				{
-					if (chdir(tokens[1]) != 0)
-					{
-						fprintf(stderr, "Invalid directory\n");
-					}
+					printf("Commands \'%s\' not found, or an error has occured during execution\n", tokens[0]);
+					exit(1);
 				}
 			}
 			else
@@ -261,7 +270,16 @@ int main(int argc, char *argv[])
 		{
 			free(tokens[i]);
 		}
-		free(tokens);
+		for (int i = 0; commands_array[i] != NULL; i++)
+		{
+			for (int j = 0; commands_array[i][j] != NULL; j++)
+			{
+				free(commands_array[i][j]); // Free each token
+			}
+			free(commands_array[i]); // Free each command
+		}
+
+		free(commands_array);
 	}
 	return 0;
 }
