@@ -49,30 +49,73 @@ char **tokenize(char *line)
 
 void background_process(char ***commands)
 {
-	pid_t pid = fork();
-
-	if (pid < 0)
-	{
-		perror("fork fail in background process");
-	}
-
-	if (pid == 0)
-	{
-		setsid();
-
-		if (execvp(commands[0][0], commands[0]) == -1)
-		{
-			perror("Error execurting in background");
-		}
-	}
+	//TODO implement
 }
 
 void sequence_process(char ***commands)
 {
+    int i = 0;
+    while (commands[i] != NULL) // Loop through all commands
+    {
+        pid_t pid = fork();
+
+        if (pid < 0)
+        {
+            perror("Fork failed");
+            exit(1);
+        }
+        else if (pid == 0)
+        {
+            if (execvp(commands[i][0], commands[i]) == -1)
+            {
+                perror("Error executing command");
+				exit(1);
+            }
+        }
+        else
+        {
+            waitpid(pid, 0, 0);
+        }
+        i++;
+    }
 }
 
 void parallel_in_foreground(char ***commands)
 {
+    int i = 0;
+    pid_t pids[MAX_NUM_TOKENS]; // Store PIDs of child processes
+    int num_commands = 0;
+
+    while (commands[i] != NULL)
+    {
+        pid_t pid = fork();
+
+        if (pid < 0)
+        {
+            perror("Fork failed");
+            exit(1);
+        }
+        else if (pid == 0)
+        {
+            if (execvp(commands[i][0], commands[i]) == -1)
+            {
+                perror("Error executing command");
+                exit(1);
+            }
+        }
+        else
+        {
+            pids[i] = pid;
+            num_commands++;
+        }
+
+        i++;
+    }
+
+    for (int j = 0; j < num_commands; j++)
+    {
+        waitpid(pids[j], NULL, 0);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -168,10 +211,7 @@ int main(int argc, char *argv[])
 
 		if (background == 1)
 		{
-			for (int i = 0; commands_array[i] != NULL; i++)
-			{
-				background_process(commands_array);
-			}
+			background_process(commands_array);
 		}
 		else if (sequence == 1)
 		{
