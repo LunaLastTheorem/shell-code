@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <stdbool.h>
 #include <string.h>
+#include <signal.h>
+
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
@@ -47,21 +49,46 @@ char **tokenize(char *line)
 	return tokens;
 }
 
-void background_process(char ***commands)
-{
-	// TODO implement
+void background_process(char ***commands) {
+    int i = 0;
+    while (commands[i] != NULL) {
+		if (strcmp(commands[i][0], "cd") == 0)
+		{
+			if (commands[i][1] == NULL || chdir(commands[i][1]) != 0)
+			{
+				perror("Invalid directory\n");
+			}
+			i++;
+			continue;
+		}
+
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("Fork failed");
+            exit(1);
+        } else if (pid == 0) {
+			if (execvp(commands[i][0], commands[i]) == -1) {
+				printf("Command '%s' not found or failed to execute\n", commands[i][0]);
+                exit(1);
+            }
+        }else{
+			printf("Shell: Started background process with PID[%d]\n", pid);
+		}
+        i++;
+    }
 }
 
 void sequence_process(char ***commands)
 {
 	int i = 0;
-	while (commands[i] != NULL) // Loop through all commands
+	while (commands[i] != NULL)
 	{
 		if (strcmp(commands[i][0], "cd") == 0)
 		{
 			if (commands[i][1] == NULL || chdir(commands[i][1]) != 0)
 			{
-				fprintf(stderr, "Invalid directory\n");
+				perror("Invalid directory\n");
 			}
 			i++;
 			continue;
@@ -138,8 +165,19 @@ void parallel_in_foreground(char ***commands)
 	}
 }
 
+void reap_background_processes(int sig) {
+    int status;
+    pid_t pid;
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        printf("Shell: Background process %d finished\n", pid);
+    }
+}
+
 int main(int argc, char *argv[])
 {
+	signal(SIGCHLD, reap_background_processes);
+
 	char line[MAX_INPUT_SIZE];
 	char **tokens;
 	int i;
@@ -169,6 +207,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{ // interactive mode
+			reap_background_processes(0);
 			printf("$ ");
 			scanf("%[^\n]", line);
 			getchar();
@@ -274,9 +313,9 @@ int main(int argc, char *argv[])
 		{
 			for (int j = 0; commands_array[i][j] != NULL; j++)
 			{
-				free(commands_array[i][j]); // Free each token
+				free(commands_array[i][j]);
 			}
-			free(commands_array[i]); // Free each command
+			free(commands_array[i]);
 		}
 
 		free(commands_array);
